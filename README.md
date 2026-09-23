@@ -465,13 +465,3 @@ becomes a structured tree that allows reliable security checks regardless of for
 - Multi-database support (MySQL, SQLite, SQL Server)
 
 ---
-
-## Resume Highlight
-
-> Built a production-style AI Text-to-SQL system using FastAPI, PostgreSQL, SQLAlchemy, LangChain, and Ollama (Qwen 3), featuring dynamic schema grounding, an ambiguity clarification engine, AST-based SQL validation with sqlglot, automatic query limiting, and safe execution of natural-language queries.
-
----
-
-## License
-
-MIT License.
