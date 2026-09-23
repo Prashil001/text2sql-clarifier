@@ -461,5 +461,4 @@ python test_clarifier.py
 - Query cost estimation
 - Multi-database support
 
----
 
