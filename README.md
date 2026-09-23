@@ -1,191 +1,95 @@
-# Text2SQL Clarifier
+# 🧠 Text2SQL Clarifier
 
-> A production-style AI Text-to-SQL system that converts natural language into safe PostgreSQL queries using **FastAPI, LangChain, Ollama (Qwen 3), SQLAlchemy, and PostgreSQL**.
+> A production-grade AI Text-to-SQL system that converts natural language into **safe PostgreSQL queries** using **FastAPI, LangChain, Ollama (Qwen 3), SQLAlchemy, PostgreSQL, and Streamlit**.
 
-Unlike typical Text-to-SQL demos, this project includes **dynamic schema grounding**, an **ambiguity clarification engine**, **AST-based SQL validation**, and **safe query execution**, making it much closer to real-world enterprise AI systems.
-
----
-
-## Features
-
-- Dynamic database schema grounding using PostgreSQL `information_schema`
-- Local LLM with **Ollama + Qwen 3**
-- Natural language → PostgreSQL SQL generation
-- Ambiguity clarification before SQL generation
-- Structured LLM outputs with **Pydantic**
-- SQL safety validation using **sqlglot**
-- Whitelist policy (only `SELECT` queries allowed)
-- Automatic `LIMIT 100` injection
-- Secure SQL execution with SQLAlchemy
-- Dockerized PostgreSQL
-- Alembic database migrations
-- Interactive Swagger API documentation
+Unlike typical Text-to-SQL demos, this project includes **dynamic schema grounding**, an **ambiguity clarification engine**, **AST-based SQL validation**, and **secure query execution**, making it much closer to enterprise AI applications.
 
 ---
 
-## Demo
+## ✨ Features
 
-### Architecture
+- 💬 Natural Language → PostgreSQL SQL generation
+- 🦙 Local LLM inference using **Ollama + Qwen 3**
+- 🗂️ Dynamic schema grounding from PostgreSQL `information_schema`
+- ❓ Clarification Engine for ambiguous requests
+- ✅ Structured LLM outputs using Pydantic
+- 🛡️ SQL AST validation using `sqlglot`
+- 🔒 Only `SELECT` queries are allowed
+- 📏 Automatic `LIMIT 100` injection
+- ⚡ Secure SQL execution using SQLAlchemy
+- 🎨 Interactive Streamlit chat interface
+- 🐳 Docker Compose orchestration
+- 🔄 Alembic database migrations
+- 📚 Swagger API documentation
+
+---
+
+# 🏗️ System Architecture
+
+The application follows a layered architecture where each service has a single responsibility.
 
 ```text
-User
- │
- ▼
-FastAPI
- │
- ▼
+                    Docker Compose Network
+
+        ┌──────────────────────────────────────┐
+        │                                      │
+        │   Streamlit Frontend (Port 8501)     │
+        │              │                       │
+        │              ▼ HTTP                  │
+        │      FastAPI Backend (8000)          │
+        │         │                │           │
+        │         ▼                ▼           │
+        │ PostgreSQL (5432)   Ollama (Host)    │
+        └──────────────────────────────────────┘
+```
+
+## Service Responsibilities
+
+| Service | Responsibility |
+|---------|---------------|
+| **Streamlit** | User interface and API communication |
+| **FastAPI** | Clarification, schema loading, LLM orchestration, SQL validation, and execution |
+| **PostgreSQL** | Stores application data |
+| **Ollama** | Runs the local Qwen model |
+
+> The Streamlit frontend never communicates directly with PostgreSQL or Ollama. Every request flows through FastAPI.
+
+---
+
+# 🤖 AI Processing Pipeline
+
+Every query passes through multiple safety layers before reaching the database.
+
+```text
+User Question
+      │
+      ▼
 Clarification Engine
- │
- ▼
-Schema Loader
- │
- ▼
+      │
+      ▼
+Dynamic Schema Loader
+      │
+      ▼
 Qwen 3 (Ollama)
- │
- ▼
-SQL Validator (sqlglot)
- │
- ▼
-Safe Query Executor
- │
- ▼
-PostgreSQL
- │
- ▼
+      │
+      ▼
+Structured SQL Output
+      │
+      ▼
+SQL AST Validation (sqlglot)
+      │
+      ▼
+Safe Query Execution
+      │
+      ▼
 JSON Response
 ```
 
-### Example
+## Pipeline Breakdown
 
-**Input**
+### 1. Clarification Engine
 
-```json
-{
-  "question": "Top 5 customers by spending"
-}
-```
-
-**Output**
-
-```json
-{
-  "sql": "SELECT c.name, SUM(o.total_amount) AS spending ... LIMIT 5;",
-  "reason": "Join customers and orders, aggregate spending, and return the top five.",
-  "rows_returned": 5,
-  "data": [
-    {
-      "name": "John",
-      "spending": 12450
-    }
-  ]
-}
-```
-
-### Ambiguous Query
-
-**Input**
-
-```json
-{
-  "question": "Show sales"
-}
-```
-
-**Output**
-
-```json
-{
-  "type": "clarification",
-  "question": "Which sales do you mean?",
-  "options": [
-    "Total revenue",
-    "Number of orders",
-    "Sales for a specific period"
-  ]
-}
-```
-
----
-
-## Tech Stack
-
-| Category | Technology |
-|----------|------------|
-| Language | Python |
-| Backend | FastAPI |
-| Database | PostgreSQL |
-| ORM | SQLAlchemy |
-| Migrations | Alembic |
-| AI | LangChain |
-| Local LLM | Ollama (Qwen 3) |
-| Validation | Pydantic |
-| SQL Parser | sqlglot |
-| Containerization | Docker |
-
----
-
-## Project Structure
-
-```text
-text2sql-clarifier/
-│
-├── app/
-│   ├── api/
-│   │   └── query.py
-│   │
-│   ├── database/
-│   │   ├── session.py
-│   │   └── base.py
-│   │
-│   ├── models/
-│   ├── prompts/
-│   ├── schemas/
-│   ├── services/
-│   │   ├── llm.py
-│   │   ├── schema_loader.py
-│   │   ├── clarifier.py
-│   │   ├── sql_generator.py
-│   │   ├── sql_validator.py
-│   │   └── query_executor.py
-│   │
-│   ├── utils/
-│   │   └── serializer.py
-│   │
-│   └── main.py
-│
-├── alembic/
-├── tests/
-├── docker-compose.yml
-├── requirements.txt
-├── .env.example
-└── README.md
-```
-
----
-
-## How It Works
-
-### Step 1 — Dynamic Schema Grounding
-
-Instead of hardcoding table names, the system queries PostgreSQL's `information_schema`.
-
-Example:
-
-```sql
-SELECT table_name, column_name
-FROM information_schema.columns
-WHERE table_schema='public';
-```
-
-This keeps the AI synchronized with the latest database schema after every Alembic migration.
-
----
-
-### Step 2 — Clarification Engine
-
-Before generating SQL, the system determines whether the user's request is ambiguous.
-
-Example:
+Detects ambiguous requests before SQL generation.
 
 | User Input | Action |
 |------------|---------|
@@ -196,39 +100,53 @@ Example:
 
 ---
 
-### Step 3 — SQL Generation
+### 2. Dynamic Schema Grounding
+
+Instead of hardcoding tables, the backend queries PostgreSQL's `information_schema`.
+
+```sql
+SELECT table_name, column_name
+FROM information_schema.columns
+WHERE table_schema='public';
+```
+
+This keeps the LLM synchronized with the latest database schema.
+
+---
+
+### 3. SQL Generation
 
 The LLM receives:
 
-- System instructions
-- Live database schema
 - User question
+- Live database schema
+- System instructions
 
 It returns structured JSON.
 
 ```json
 {
-  "sql":"SELECT ...",
-  "reason":"..."
+  "sql": "SELECT ...",
+  "reason": "..."
 }
 ```
 
 ---
 
-### Step 4 — SQL Safety Guardrails
+### 4. SQL Safety Guardrails
 
-Generated SQL is parsed into an Abstract Syntax Tree using **sqlglot**.
+Every generated query is parsed into an Abstract Syntax Tree using **sqlglot**.
 
 Security rules:
 
-- Only `SELECT` statements are allowed.
-- Multiple SQL statements are rejected.
-- Invalid SQL is rejected.
-- Missing `LIMIT` automatically becomes `LIMIT 100`.
+- ✅ Only `SELECT` statements
+- ❌ Reject `DELETE`, `UPDATE`, `INSERT`, `DROP`
+- ❌ Block multiple SQL statements
+- ✅ Automatically add `LIMIT 100`
 
 Example:
 
-Input:
+Generated:
 
 ```sql
 SELECT * FROM customers;
@@ -242,62 +160,195 @@ SELECT * FROM customers LIMIT 100;
 
 ---
 
-### Step 5 — Safe Query Execution
+### 5. Safe Query Execution
 
 Validated SQL is executed using SQLAlchemy.
 
-Results are serialized into JSON-safe values.
+Returned values are serialized into JSON-safe types:
 
-Supported types:
-
-- `Decimal`
-- `datetime`
-- `date`
-- `UUID`
+- Decimal
+- datetime
+- date
+- UUID
 
 ---
 
-## Installation
+# 🛠️ Tech Stack
 
-### Clone
+| Category | Technology |
+|----------|------------|
+| Language | Python |
+| Backend | FastAPI |
+| Frontend | Streamlit |
+| Database | PostgreSQL |
+| ORM | SQLAlchemy |
+| Migrations | Alembic |
+| AI Framework | LangChain |
+| Local LLM | Ollama (Qwen 3) |
+| Validation | Pydantic |
+| SQL Parser | sqlglot |
+| Containerization | Docker & Docker Compose |
+
+---
+
+# 📂 Project Structure
+
+```text
+text2sql-clarifier/
+│
+├── app/
+│   ├── api/
+│   ├── core/
+│   ├── database/
+│   ├── models/
+│   ├── prompts/
+│   ├── schemas/
+│   ├── services/
+│   │   ├── llm.py
+│   │   ├── schema_loader.py
+│   │   ├── clarifier.py
+│   │   ├── sql_generator.py
+│   │   ├── sql_validator.py
+│   │   └── query_executor.py
+│   ├── utils/
+│   │   └── serializer.py
+│   └── main.py
+│
+├── frontend/
+│   ├── api.py
+│   ├── components.py
+│   ├── styles.py
+│   └── utils.py
+│
+├── streamlit_app.py
+├── alembic/
+├── tests/
+├── Dockerfile.backend
+├── Dockerfile.frontend
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+└── README.md
+```
+
+---
+
+# 🚀 Quick Start (Docker)
+
+## Prerequisites
+
+- Docker Desktop
+- Docker Compose
+- Ollama installed locally
+
+### Pull the model
+
+```bash
+ollama pull qwen3:4b
+```
+
+Verify:
+
+```bash
+ollama list
+```
+
+---
+
+## Clone the repository
 
 ```bash
 git clone https://github.com/yourusername/text2sql-clarifier.git
 cd text2sql-clarifier
 ```
 
-### Create Virtual Environment
+---
+
+## Start the entire application
+
+```bash
+docker compose up --build
+```
+
+This launches:
+
+| Service | URL |
+|---------|-----|
+| Streamlit | http://localhost:8501 |
+| FastAPI Docs | http://localhost:8000/docs |
+| PostgreSQL | localhost:5432 |
+
+---
+
+## Run database migrations
+
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+(Optional) Seed the database.
+
+```bash
+docker compose exec backend python seed.py
+```
+
+---
+
+# 🌐 Docker Networking
+
+Inside Docker, services communicate using service names instead of `localhost`.
+
+| Connection | Address |
+|------------|----------|
+| Frontend → Backend | `http://backend:8000` |
+| Backend → PostgreSQL | `postgresql://postgres:password@db:5432/text2sql` |
+| Backend → Ollama | `http://host.docker.internal:11434` |
+
+### Why is Ollama outside Docker?
+
+Keeping Ollama on the host machine provides:
+
+- Faster startup
+- Better GPU compatibility
+- Easier model management
+- Smaller Docker images
+
+The backend accesses Ollama using `host.docker.internal`.
+
+---
+
+# ⚙️ Local Development
+
+Create a virtual environment.
 
 ```bash
 python -m venv venv
 ```
 
-Windows:
+Activate it.
+
+**Windows**
 
 ```bash
 venv\Scripts\activate
 ```
 
-Linux/Mac:
+**Linux/macOS**
 
 ```bash
 source venv/bin/activate
 ```
 
-### Install Dependencies
+Install dependencies.
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
-
-## PostgreSQL Setup
-
-Start PostgreSQL using Docker.
+Start PostgreSQL.
 
 ```bash
-docker-compose up -d
+docker compose up db -d
 ```
 
 Run migrations.
@@ -306,172 +357,109 @@ Run migrations.
 alembic upgrade head
 ```
 
-Seed the database.
-
-```bash
-python seed.py
-```
-
----
-
-## Ollama Setup
-
-Install Ollama.
-
-Download:
-
-https://ollama.com
-
-Pull Qwen 3.
-
-```bash
-ollama pull qwen3:4b
-```
-
-Verify.
-
-```bash
-ollama list
-```
-
----
-
-## Environment Variables
-
-Create `.env`.
-
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/text2sql
-OLLAMA_MODEL=qwen3:4b
-MAX_QUERY_ROWS=100
-```
-
----
-
-## Run the Server
+Start FastAPI.
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Open Swagger.
+Start Streamlit.
 
-```
-http://127.0.0.1:8000/docs
-```
-
----
-
-## API
-
-### Generate SQL
-
-`POST /query`
-
-Request
-
-```json
-{
-  "question":"Show all customers"
-}
-```
-
-Response
-
-```json
-{
-  "sql":"SELECT * FROM customers LIMIT 100;",
-  "reason":"Retrieve all customers.",
-  "rows_returned":100,
-  "data":[]
-}
+```bash
+streamlit run streamlit_app.py
 ```
 
 ---
 
-## Security Features
+# 📡 API
+
+## POST `/query`
+
+### Request
+
+```json
+{
+  "question": "Top 5 customers by spending"
+}
+```
+
+### Success Response
+
+```json
+{
+  "sql": "SELECT ... LIMIT 5;",
+  "reason": "Joined customers and orders and ranked by spending.",
+  "rows_returned": 5,
+  "data": []
+}
+```
+
+### Clarification Response
+
+```json
+{
+  "type": "clarification",
+  "question": "Which sales do you mean?",
+  "options": [
+    "Revenue",
+    "Order Count",
+    "Monthly Sales"
+  ]
+}
+```
+
+---
+
+# 🔒 Security Features
+
+Instead of trusting LLM output directly, every generated query passes through multiple protection layers.
 
 - Dynamic schema grounding
 - Structured LLM outputs
 - SQL AST validation
-- SELECT-only execution
-- Automatic row limiting
+- `SELECT`-only whitelist
+- Automatic `LIMIT`
 - Multi-statement blocking
-- Safe SQL execution
+- Safe SQL execution with SQLAlchemy
 
 ---
 
-## Testing
+# 🧪 Testing
 
-Run validator tests.
+Run the included test scripts.
 
 ```bash
 python test_validator.py
-```
-
-Run executor tests.
-
-```bash
 python test_executor.py
-```
-
-Run clarification tests.
-
-```bash
 python test_clarifier.py
 ```
 
 ---
 
-## Why sqlglot Instead of Regex?
+# ⚖️ Engineering Decisions
 
-Regex only matches text.
-
-`sqlglot` parses SQL into an Abstract Syntax Tree.
-
-Example:
-
-```sql
-SELECT name
-FROM customers
-WHERE id=1;
-```
-
-becomes a structured tree that allows reliable security checks regardless of formatting or comments.
-
----
-
-## Engineering Decisions
-
-| Problem | Solution |
-|---------|----------|
+| Challenge | Solution |
+|-----------|----------|
 | Hallucinated columns | Dynamic schema grounding |
 | Ambiguous requests | Clarification Engine |
-| Unsafe SQL | AST validation |
-| Large queries | Automatic LIMIT |
-| Non-JSON database types | Serializer |
+| Unsafe SQL | AST validation with sqlglot |
+| Large result sets | Automatic LIMIT |
+| Non-JSON DB types | Serializer |
 | Schema evolution | Alembic |
+| Service orchestration | Docker Compose |
+| Local LLM integration | Host-based Ollama |
 
 ---
 
-## Future Improvements
+# 🚀 Future Improvements
 
-- Conversation memory for follow-up questions
-- SQL execution history
-- Query caching
+- Conversation memory
+- Query history
 - Streaming responses
+- Query execution analytics
 - Role-based database permissions
-- Query cost estimation before execution
-- Multi-database support (MySQL, SQLite, SQL Server)
+- Query cost estimation
+- Multi-database support
 
 ---
 
-## Resume Highlight
-
-> Built a production-style AI Text-to-SQL system using FastAPI, PostgreSQL, SQLAlchemy, LangChain, and Ollama (Qwen 3), featuring dynamic schema grounding, an ambiguity clarification engine, AST-based SQL validation with sqlglot, automatic query limiting, and safe execution of natural-language queries.
-
----
-
-## License
-
-MIT License.

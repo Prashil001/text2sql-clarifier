@@ -15,7 +15,15 @@ def generate_sql(question: str):
     schema = format_schema(load_schema())
     print(f"Schema loaded in {time.time()-start:.2f}s")
 
-    prompt = f"""..."""
+    prompt = f"""
+    {SQL_SYSTEM_PROMPT}
+
+    database schema:
+    {schema}
+
+    user question:
+    {question}
+    """
 
     print("Calling Ollama...")
     result = structured_llm.invoke(prompt)
